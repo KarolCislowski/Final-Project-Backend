@@ -15,10 +15,16 @@ mongoose.Promise = Promise
 
 //__________ Schema for authentication
 const userSchema = new mongoose.Schema({
-	username: {
+	email: {
 		type: String,
 		unique: [true, "Email address already exists in the database"],
-		required: [true, "Email address is required"]
+		required: [true, "Email address is required"],
+	},
+	username: {
+		type: String, 
+		minlength: [2, "Username is to short - minimum 2 characters"],
+		maxlength: [30, "Username is to long, max 30 characters"],
+		required: [true, "Username is required"],
 	},
 	password: {
 		type: String,
@@ -30,8 +36,25 @@ const userSchema = new mongoose.Schema({
 		default: () => crypto.randomBytes(128).toString("hex"),
 		unique: true,
 	},
-}, { timestamps: true })
+})
 
+//__________ Saved add Schema
+const savedItem = new mongoose.Schema({
+	userId: {
+		type: mongoose.Schema.Types.ObjectId,
+		ref: "User",
+	},
+  annonsId: {
+		type: Number,
+		unique: [true, "You have already saved this item"],
+	},
+})
+
+//__________ Mongoose models 
+const User = mongoose.model("User", userSchema)
+const SavedItem = mongoose.model("SavedItem", savedItem)
+
+//__________ Middleware to hash password before new user is saved
 userSchema.pre("save", async function (next) {
 	const user = this
 	if (!user.isModified("password")) {
@@ -42,36 +65,7 @@ userSchema.pre("save", async function (next) {
 	next()
 })
 
-//__________ Mongoose model for creating a user object
-const User = mongoose.model("User", userSchema)
-
-//__________ Bostad Model (should i use this?)
-// const Bostad = mongoose.model('Bostad', {
-//   annonsID: {
-//     type: Number,
-//   },
-//   stadsdel: {
-//     type: String,
-//   }, 
-//   kommun: {
-//     type: String,
-//   },
-//   antalRum: {
-//     type: String,
-//   },
-//   yta: {
-//     type: String,
-//   },
-//   hyra: {
-//     type: Number,
-//   },
-//   url: {
-//     type: String
-//   }
-// })
-
-//__________ Middleware to hash password before new user is saved
-
+//__________ Middleware to authenticate the user
 const authenticateUser = async (req, res, next) => {
 	const user = await User.findOne({ accessToken: req.header("Authorization")})
 	if (user) {
@@ -104,13 +98,14 @@ app.get('/', (req, res) => {
   res.send(listEndpoints(app))
 })
 
-//__________Create user
+//__________Create user 
 app.post("/users", async (req, res) => {
 	try {
-		const { username, password } = req.body
+		const { username, password, email } = req.body
 		const user = await new User({
 			username,
 			password,
+			email,
 		}).save()
 
 		res.status(201).json({ userId: user._id, accessToken: user.accessToken })
@@ -119,10 +114,10 @@ app.post("/users", async (req, res) => {
 	}
 })
 
-//__________Login endpoint
+//__________Login session
 app.post("/sessions", async (req, res) => {
 	try {
-		const user = await User.findOne({ username: req.body.username })
+		const user = await User.findOne({ email: req.body.email })
 		if (user && bcrypt.compareSync(req.body.password, user.password)) {
 			res.status(200).json({
 				userFound: true,
@@ -143,40 +138,82 @@ app.post("/sessions", async (req, res) => {
 	}
 })
 
-//__________ Secure endpoint for signed in users (fetch to external api here soon)
-app.get("/listings", authenticateUser)
-app.get("/listings", (req, res) => {
-	const bostadsListing = {
-		imageUrl: `https://images.unsplash.com/photo-1570129477492-45c003edd2be?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1500&q=80`,
-	}
-	res.status(201).json({ bostadsListing })
-})
-
 //__________ Secure personal endpoint for signed in user
 app.get("/users/:id", authenticateUser)
 app.get("/users/:id", async (req, res) => {
 	try {
-		const user = await User.findOne({ _id: req.params.id })
-  	const profile = `Welcome to your site ${req.user.name}`
+		// const user = await User.findOne({ _id: req.params.id })
+		const profile = `Welcome to your page ${req.user.username}`
+		res.status(201).json(profile)
 	} catch (error) {
-		res.status(400).json({message: "could not find profile"})
+		res.status(400).json({message: "could not find user"})
 	}
 })
 
-// //__________ Endpoints for saving listings 
-app.post("users/:id/listings", authenticateUser)
-app.post("users/:id/listings", async (req, res) => {
-	const { id } = req.params
-		try {
-			const save = await bostadsListing.findOne({_id: req.params.id})
-			res.status(200).json({ success: "listing saved" })
-		} catch (err) {
-			res.status(400).json({ message: "Could not save listing to database", error: err.errors,})
-		}
+//__________ Endpoint with all data 
+app.get("/list", async (req, res) => {
+	//Update data
+	const request = require ('request')
+	request("https://bostad.stockholm.se/Lista/AllaAnnonser", function (error, response, body) {
+		//console.log(body)
+		res.status(201).json(body) // Remove this after we save data to DB
+		// Loop array
+		// Check if id exist then update 
+		// If not exist then add to DB
+	})
+	//return data from DB
+	//add this when data is loaded from DB
+	//res.status(201).json(body)
 })
 
-//__________ Endpoint for deleting listings
+//__________ Endpoint to save specific ad
+app.post("/saveData/:annonsId", authenticateUser)
+app.post("/saveData/:annonsId", async (req, res) => {
+	const { annonsId } = req.params
+	console.log(annonsId)
+	const id = new SavedItem({ annonsId, annonsId })
+	try {
 
+		const savedId = await id.save()
+	
+		res.status(201).send(savedId)
+	} catch (err) {
+		res.status(404).json({
+			message: "Could not save add to database",
+			error: err.errors
+		})
+	}
+	//res.status(201).json(body)
+})
+
+//__________ Endpoint to list users saved ads
+app.get("/getData", authenticateUser)
+app.get("/getData", async (req, res) => {
+	try {
+    //Success
+		const items = await SavedItem.find().sort({ createdAt: "desc" })
+		console.log(items)
+		
+		//get ads with the annonsID
+		/*const userSavedList = []
+		const request = require ('request')
+		request("https://bostad.stockholm.se/Lista/AllaAnnonser", function (body) {
+			for (ad in body) {
+				if (items.includes(ad.annonsID)) {
+					userSavedList.push(ad)
+				}
+			}
+		})*/
+
+    res.status(200).json(items)
+  } catch (err) {
+    res
+      .status(400)
+      .json({ message: "Could not get item", error: err.errors })
+  }
+})
+
+//__________ TODO:Endpoint for deleting listings
 
 //__________ Start the server
 app.listen(port, () => {
@@ -184,7 +221,44 @@ app.listen(port, () => {
 })
 
 //TODO: 
-// Add authentication 
-// Add get request to bostads api 
-// Add error handling
-// save & delete save function
+// Add authentication - DONE
+// Schema for user - DONE
+// Schema for bostad - DONE
+// Add get request to bostads api ?
+// Add custom error handling
+// Save & delete save endpoint
+// Remove request Npm ?
+// Validator for email?
+// Dotenv
+
+
+
+// //__________ Appartment Schema  - Save to DB? If not Remove this
+// const appartmentSchema = new mongoose.Schema({
+// 	userId: {
+// 		type: mongoose.Schema.Types.ObjectId,
+// 		ref: "User"
+// 	},
+//   annonsID: {
+//     type: Number,
+// 	},
+// 	saved: {
+// 		type: Boolean,
+// 		default: false,
+// 	},
+//   stadsdel: {
+//     type: String,
+//   }, 
+//   antalRum: {
+//     type: String,
+//   },
+//   yta: {
+//     type: String,
+//   },
+//   hyra: {
+//     type: Number,
+//   },
+//   url: {
+//     type: String
+// 	}
+// })
