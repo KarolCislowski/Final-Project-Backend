@@ -14,6 +14,7 @@
     "@babel/node": "^7.8.7",
     "@babel/preset-env": "^7.8.7",
     "bcrypt": "^5.0.0",
+    "bent": "^7.3.12",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "crypto-js": "^4.0.0",
@@ -22,7 +23,6 @@
     "express-list-endpoints": "^5.0.0",
     "mongoose": "^5.11.10",
     "nodemon": "^2.0.2",
-    "request": "^2.88.2",
     "requestify": "^0.2.5"
   },
   "devDependencies": {

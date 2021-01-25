@@ -7,6 +7,7 @@ import bcrypt from "bcrypt"
 import crypto from "crypto"
 import listEndpoints from 'express-list-endpoints'
 import dotenv from "dotenv"
+import bent from "bent"
 
 //__________ Database Code
 const mongoUrl = process.env.MONGO_URL || "mongodb://localhost/bostads-api"
@@ -46,7 +47,7 @@ const savedItem = new mongoose.Schema({
 	},
   annonsId: {
 		type: Number,
-		unique: [true, "You have already saved this item"],
+		unique: [true, "You have already saved this item"], //FIXME: working?
 	},
 })
 
@@ -148,34 +149,25 @@ app.get("/users/:id", async (req, res) => {
 	} catch (error) {
 		res.status(400).json({message: "could not find user"})
 	}
-})
+}),
 
 //__________ Endpoint with all data 
 app.get("/list", async (req, res) => {
-	//Update data
-	const request = require ('request')
-	request("https://bostad.stockholm.se/Lista/AllaAnnonser", function (error, response, body) {
-		//console.log(body)
-		res.status(201).json(body) // Remove this after we save data to DB
-		// Loop array
-		// Check if id exist then update 
-		// If not exist then add to DB
-	})
-	//return data from DB
-	//add this when data is loaded from DB
-	//res.status(201).json(body)
+	const bent = require('bent')
+	const getJSON = bent('json')
+	const object = await getJSON('https://bostad.stockholm.se/Lista/AllaAnnonser')
+	res.status(201).json(object)
 })
 
-//__________ Endpoint to save specific ad
+//__________ Endpoint to save specific ad 
+//FIXME: At the moment you can save the ad multiple times - how to fix?
 app.post("/saveData/:annonsId", authenticateUser)
 app.post("/saveData/:annonsId", async (req, res) => {
 	const { annonsId } = req.params
 	console.log(annonsId)
 	const id = new SavedItem({ annonsId, annonsId })
 	try {
-
 		const savedId = await id.save()
-	
 		res.status(201).send(savedId)
 	} catch (err) {
 		res.status(404).json({
@@ -193,18 +185,6 @@ app.get("/getData", async (req, res) => {
     //Success
 		const items = await SavedItem.find().sort({ createdAt: "desc" })
 		console.log(items)
-		
-		//get ads with the annonsID
-		/*const userSavedList = []
-		const request = require ('request')
-		request("https://bostad.stockholm.se/Lista/AllaAnnonser", function (body) {
-			for (ad in body) {
-				if (items.includes(ad.annonsID)) {
-					userSavedList.push(ad)
-				}
-			}
-		})*/
-
     res.status(200).json(items)
   } catch (err) {
     res
@@ -220,17 +200,19 @@ app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`)
 })
 
-//TODO: 
-// Add authentication - DONE
-// Schema for user - DONE
-// Schema for bostad - DONE
-// Add get request to bostads api ?
-// Add custom error handling
-// Save & delete save endpoint
-// Remove request Npm ?
-// Validator for email?
-// Dotenv
-
+/*
+TODO: 
+FIXME: Authentication - sign in not working
+FIXME: Save function - can save ad multiple time- fix
+Add authentication - DONE
+Schema for user - DONE
+Schema for bostad - DONE
+Add get request to bostads api - DONE
+Add custom error handling
+Save & delete endpoint
+Validator for email?
+Dotenv
+*/
 
 
 // //__________ Appartment Schema  - Save to DB? If not Remove this
