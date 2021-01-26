@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema({
 })
 
 //__________ Saved add Schema
-const savedItem = new mongoose.Schema({
+const savedItemSchema = new mongoose.Schema({
 	userId: {
 		type: mongoose.Schema.Types.ObjectId,
 		ref: "User",
@@ -53,18 +53,7 @@ const savedItem = new mongoose.Schema({
 
 //__________ Mongoose models 
 const User = mongoose.model("User", userSchema)
-const SavedItem = mongoose.model("SavedItem", savedItem)
-
-//__________ Middleware to hash password before new user is saved
-userSchema.pre("save", async function (next) {
-	const user = this
-	if (!user.isModified("password")) {
-		return next()
-	}
-	const salt = bcrypt.genSaltSync()
-	user.password = bcrypt.hashSync(user.password, salt)
-	next()
-})
+const SavedItem = mongoose.model("SavedItem", savedItemSchema)
 
 //__________ Middleware to authenticate the user
 const authenticateUser = async (req, res, next) => {
@@ -103,9 +92,10 @@ app.get('/', (req, res) => {
 app.post("/users", async (req, res) => {
 	try {
 		const { username, password, email } = req.body
+		const salt = bcrypt.genSaltSync()
 		const user = await new User({
 			username,
-			password,
+			password:bcrypt.hashSync(password, salt),
 			email,
 		}).save()
 
@@ -118,7 +108,9 @@ app.post("/users", async (req, res) => {
 //__________Login session
 app.post("/sessions", async (req, res) => {
 	try {
+		
 		const user = await User.findOne({ email: req.body.email })
+		console.log(user)
 		if (user && bcrypt.compareSync(req.body.password, user.password)) {
 			res.status(200).json({
 				userFound: true,
@@ -163,9 +155,9 @@ app.get("/list", async (req, res) => {
 //FIXME: At the moment you can save the ad multiple times - how to fix?
 app.post("/saveData/:annonsId", authenticateUser)
 app.post("/saveData/:annonsId", async (req, res) => {
-	const { annonsId } = req.params
+	const { annonsId } = req.body
 	console.log(annonsId)
-	const id = new SavedItem({ annonsId, annonsId })
+	const id = new SavedItem({ annonsId, userId })
 	try {
 		const savedId = await id.save()
 		res.status(201).send(savedId)
@@ -200,19 +192,19 @@ app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`)
 })
 
-/*
-TODO: 
-FIXME: Authentication - sign in not working
-FIXME: Save function - can save ad multiple time- fix
-Add authentication - DONE
-Schema for user - DONE
-Schema for bostad - DONE
-Add get request to bostads api - DONE
-Add custom error handling
-Save & delete endpoint
-Validator for email?
-Dotenv
-*/
+
+// TODO: 
+// Authentication - sign in not working - DONE
+// FIXME: Save function - can save ad multiple time- fix
+// Add authentication - DONE
+// Schema for user - DONE
+// Schema for bostad - DONE
+// Add get request to bostads api - DONE
+// Add custom error handling
+// Save & delete endpoint
+// Validator for email?
+// Dotenv
+
 
 
 // //__________ Appartment Schema  - Save to DB? If not Remove this
