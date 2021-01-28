@@ -10,7 +10,7 @@ import dotenv from "dotenv"
 import bent from "bent"
 
 //__________ Database Code
-const mongoUrl = process.env.MONGO_URL || "mongodb://localhost/bostads-api"
+const mongoUrl = process.env.MONGO_URL || "mongodb://localhost/bostad"
 mongoose.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
 mongoose.Promise = Promise
 
@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema({
 		default: () => crypto.randomBytes(128).toString("hex"),
 		unique: true,
 	},
+	savedAppartments: [{
+		type: mongoose.Schema.Types.ObjectId,
+		ref: SavedItem,
+	}]
 })
 
 //__________ Saved add Schema
@@ -47,13 +51,9 @@ const savedItemSchema = new mongoose.Schema({
 	},
   annonsId: {
 		type: Number,
-		unique: [true, "You have already saved this item"], //FIXME: working?
+	//	unique: [true, "You have already saved this item"], //FIXME: working?
 	},
 })
-
-//__________ Mongoose models 
-const User = mongoose.model("User", userSchema)
-const SavedItem = mongoose.model("SavedItem", savedItemSchema)
 
 //__________ Middleware to authenticate the user
 const authenticateUser = async (req, res, next) => {
@@ -65,6 +65,10 @@ const authenticateUser = async (req, res, next) => {
 		res.status(403).json({ loggedOut: true })  
 	}
 }
+
+//__________ Mongoose models 
+const User = mongoose.model("User", userSchema)
+const SavedItem = mongoose.model("SavedItem", savedItemSchema)
 
 //__________ Server
 const port = process.env.PORT || 8080
@@ -152,6 +156,56 @@ app.get("/list", async (req, res) => {
 })
 
 //__________ Endpoint to save specific ad 
+// app.put("/users/:userId/favorites", authenticateUser)
+// app.put("/users/:userId/favorites", async (req, res) => {
+// 	const { userId } = req.params
+
+// 	try {
+// 		const { annonsId } = req.body
+// 		const savedAd = await SavedItem.findOne(annonsId, userId)
+		
+// 		if(!)
+// 		await User.updateOne(
+// 			{ annonsId: userId },
+// 			{$push: { favouriteAppartment: savedAd }}
+// 		) 
+// 		res.status(200).json(savedAd)
+// 	} catch (err) {
+// 		res.status(400).json({
+// 			message: "could not save add",
+// 			errors: { message: err.message, error: err }
+// 		})
+// 	}
+// })
+
+
+//__________ Endpoint to save specific ad 
+//FIXME: At the moment you can save the ad multiple times - how to fix?
+// app.put("/saveData/:userId", authenticateUser)
+// app.put("/saveData/:userId", async (req, res) => {
+// 	const { userId } = req.params
+// 	console.log("userId" , userId)
+		
+// 	try {
+// 		const { annonsId } = req.body
+// console.log("ann", annonsId)
+// 		const id = await new SavedItem({ annonsId, userId }).save()
+// 		console.log("id", id)
+
+// 		//const savedId = await id.save()
+// 		res.status(201).send(id)
+// 	} catch (err) {
+// 		res.status(404).json({
+// 			message: "Could not save add to database",
+// 			error: err.errors,
+// 			errors: { message: err.message, error: err }
+// 		})
+// 	}
+// 	//res.status(201).json(body)
+// })
+
+
+//__________ Endpoint to save specific ad 
 //FIXME: At the moment you can save the ad multiple times - how to fix?
 app.post("/saveData/:annonsId", authenticateUser)
 app.post("/saveData/:annonsId", async (req, res) => {
@@ -169,6 +223,7 @@ app.post("/saveData/:annonsId", async (req, res) => {
 	}
 	//res.status(201).json(body)
 })
+
 
 //__________ Endpoint to list users saved ads
 app.get("/getData", authenticateUser)
@@ -194,7 +249,6 @@ app.listen(port, () => {
 
 
 // TODO: 
-// Authentication - sign in not working - DONE
 // FIXME: Save function - can save ad multiple time- fix
 // Add authentication - DONE
 // Schema for user - DONE
