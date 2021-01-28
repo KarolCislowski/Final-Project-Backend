@@ -6,8 +6,8 @@ import cors from 'cors'
 import bcrypt from "bcrypt"
 import listEndpoints from 'express-list-endpoints'
 
-import { authenticateUser, checkConnection } from './middlewares/middlewares'
-import db from './models'
+import { authenticateUser, checkConnection } from './middlewares/middlewares'  //connection and safety middlewares are moved here
+import db from './models' //all db logic is moved to the 'models' folder
 
 import bent from "bent"
 
@@ -29,7 +29,7 @@ app.post("/users", async (req, res) => {
 	try {
 		const { username, password, email } = req.body
 		const salt = bcrypt.genSaltSync()
-		const user = await new db.User({
+		const user = await new db.User({ //because all models are moved to the separate modules now you need to access them via db.YourModelName
 			username,
 			password: bcrypt.hashSync(password, salt),
 			email,
@@ -44,7 +44,7 @@ app.post("/users", async (req, res) => {
 //__________Login session
 app.post("/sessions", async (req, res) => {
 	try {
-		const user = await db.User.findOne({ email: req.body.email })
+		const user = await db.User.findOne({ email: req.body.email }) //again db.User because models are moved to separate structure outside the server.js file
 		console.log(user)
 		if (user && bcrypt.compareSync(req.body.password, user.password)) {
 			res.status(200).json({
@@ -87,6 +87,7 @@ app.get("/users/:id",
 	})
 
 //__________ Endpoint to save specific ad
+//data are stored inside the array in the user model. 
 app.post("/saveData",
 	checkConnection,
 	authenticateUser,
@@ -94,9 +95,9 @@ app.post("/saveData",
 		const { annonsId } = req.body
 		const user = await db.User.findById(req.user._id)
 		if (user) {
-			user.savedApartments.addToSet(annonsId)
+			user.savedApartments.addToSet(annonsId) //addToSet() works like a push() but it will not duplicate your data
 			user.save()
-			res.status(201).json(user.savedApartments)
+			res.status(201).json(user.savedApartments) // and here it returns just array of annonseID
 		} else {
 			res.status(404).json({
 				message: `user not found`
@@ -112,7 +113,7 @@ app.get("/getData", async (req, res) => {
 	try {
 		//Success
 		const user = await db.User.findById(req.user._id)
-		res.status(200).json(user.savedApartments)
+		res.status(200).json(user.savedApartments) // and here it returns just array of annonseID
 	} catch (err) {
 		res
 			.status(400)
