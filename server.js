@@ -83,7 +83,7 @@ app.get("/users/:id",
 	app.get("/list", async (req, res) => {
 		const getJSON = bent('json')
 		const object = await getJSON('https://bostad.stockholm.se/Lista/AllaAnnonser')
-		res.status(201).json(object)
+		res.status(200).json(object)
 	})
 
 //__________ Endpoint to save specific ad
